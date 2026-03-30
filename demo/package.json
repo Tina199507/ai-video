@@ -1,0 +1,22 @@
+{
+  "name": "ai-chat-workbench",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI Chat Automation Workbench – batch-question → free-tier web chat → collected answers",
+  "type": "module",
+  "engines": { "node": ">=20.9.0" },
+  "scripts": {
+    "dev": "node --import tsx src/server.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^22.15.21",
+    "playwright": "^1.55.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.8.3",
+    "vitest": "^4.1.2"
+  }
+}
