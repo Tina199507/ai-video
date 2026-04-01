@@ -7,6 +7,8 @@ import type { Page, BrowserContext } from 'playwright';
 import { chromium } from 'playwright';
 import { existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import type { SelectorChain, SiteAutomationConfig } from '../types.js';
+import { resolveSelector, selectorToChain, chainToSelector } from '../selectorResolver.js';
 
 export interface VideoGenRequest {
   prompt: string;
@@ -49,13 +51,11 @@ const STEALTH_ARGS = [
 ];
 
 /**
- * Generate a video using a browser-automated video generation site.
- *
- * This is a generic implementation that can be adapted to different
- * video generation platforms by providing appropriate selectors.
+ * Generate a video using a SiteAutomationConfig (SelectorChain-based).
+ * This is the preferred method — uses resilient multi-strategy selectors.
  */
-export async function generateVideoViaWeb(
-  config: VideoProviderConfig,
+export async function generateVideoViaSiteConfig(
+  config: SiteAutomationConfig,
   request: VideoGenRequest,
   outputDir: string,
   filename: string,
@@ -75,31 +75,46 @@ export async function generateVideoViaWeb(
     });
 
     const page = context.pages()[0] ?? (await context.newPage());
-    await page.goto(config.url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-    await page.waitForTimeout(3_000); // let page hydrate
+    await page.goto(config.siteUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+    await page.waitForTimeout(config.timing.hydrationDelayMs);
 
     // Upload keyframe image if provided (img2video mode)
-    if (request.imageUrl && config.imageUploadTrigger) {
-      await uploadImage(page, config.imageUploadTrigger, request.imageUrl);
+    if (request.imageUrl && config.selectors.imageUploadTrigger) {
+      await uploadImageChain(page, config.selectors.imageUploadTrigger, request.imageUrl);
     }
 
-    // Enter prompt
-    await page.fill(config.promptInput, request.prompt);
+    // Enter prompt using SelectorChain
+    const promptResult = await resolveSelector(page, config.selectors.promptInput);
+    if (!promptResult) {
+      console.warn('[videoProvider] No prompt input found via SelectorChain');
+      return null;
+    }
+    await promptResult.locator.first().fill(request.prompt);
     await page.waitForTimeout(500);
 
-    // Click generate button
-    await page.click(config.generateButton, { timeout: 5_000 });
+    // Click generate button using SelectorChain
+    if (config.selectors.generateButton) {
+      const btnResult = await resolveSelector(page, config.selectors.generateButton);
+      if (btnResult) {
+        await btnResult.locator.first().click({ timeout: 5_000 });
+      } else {
+        console.warn('[videoProvider] No generate button found via SelectorChain');
+        return null;
+      }
+    }
 
     // Wait for generation to complete
-    const maxWait = config.maxWaitMs ?? 300_000; // 5 min default
-    const pollInterval = 5_000;
+    const maxWait = config.timing.maxWaitMs;
+    const pollInterval = config.timing.pollIntervalMs;
     let elapsed = 0;
 
-    while (elapsed < maxWait) {
-      // Check if result is available
-      const resultCount = await page.locator(config.videoResult).count();
-      if (resultCount > 0) break;
+    const resultChain = config.selectors.resultElement ?? [];
 
+    while (elapsed < maxWait) {
+      if (resultChain.length > 0) {
+        const resultCheck = await resolveSelector(page, resultChain);
+        if (resultCheck) break;
+      }
       await page.waitForTimeout(pollInterval);
       elapsed += pollInterval;
     }
@@ -112,15 +127,20 @@ export async function generateVideoViaWeb(
     // Download the video
     const outputPath = join(outputDir, filename);
 
-    if (config.downloadButton) {
-      // Use download button
-      const [download] = await Promise.all([
-        page.waitForEvent('download', { timeout: 30_000 }),
-        page.click(config.downloadButton),
-      ]);
-      await download.saveAs(outputPath);
-    } else {
+    if (config.selectors.downloadButton) {
+      const dlResult = await resolveSelector(page, config.selectors.downloadButton);
+      if (dlResult) {
+        const [download] = await Promise.all([
+          page.waitForEvent('download', { timeout: 30_000 }),
+          dlResult.locator.first().click(),
+        ]);
+        await download.saveAs(outputPath);
+      }
+    }
+
+    if (!existsSync(outputPath) && resultChain.length > 0) {
       // Try to extract video URL from the result element
+      const resultSelector = chainToSelector(resultChain);
       const videoUrl = await page.evaluate((selector: string) => {
         const el = (globalThis as any).document.querySelector(selector);
         if (el?.tagName === 'VIDEO') return el.src;
@@ -129,10 +149,9 @@ export async function generateVideoViaWeb(
         const source = el?.querySelector('source');
         if (source) return source.src;
         return null;
-      }, config.videoResult);
+      }, resultSelector);
 
       if (videoUrl) {
-        // Download via page fetch
         const base64 = await page.evaluate(async (url: string) => {
           const resp = await fetch(url);
           const blob = await resp.blob();
@@ -162,22 +181,76 @@ export async function generateVideoViaWeb(
   }
 }
 
-async function uploadImage(page: Page, triggerSelector: string, imagePath: string): Promise<void> {
+/**
+ * Convert a legacy VideoProviderConfig to a SiteAutomationConfig.
+ * Allows gradual migration from the old format.
+ */
+export function legacyConfigToSiteConfig(config: VideoProviderConfig, id = 'custom-video'): SiteAutomationConfig {
+  return {
+    id,
+    label: 'Custom Video',
+    type: 'video',
+    siteUrl: config.url,
+    capabilities: { video: true, fileUpload: !!config.imageUploadTrigger },
+    selectors: {
+      promptInput: selectorToChain(config.promptInput),
+      generateButton: selectorToChain(config.generateButton),
+      resultElement: selectorToChain(config.videoResult),
+      progressIndicator: config.progressIndicator ? selectorToChain(config.progressIndicator) : undefined,
+      downloadButton: config.downloadButton ? selectorToChain(config.downloadButton) : undefined,
+      imageUploadTrigger: config.imageUploadTrigger ? selectorToChain(config.imageUploadTrigger) : undefined,
+    },
+    timing: {
+      maxWaitMs: config.maxWaitMs ?? 300_000,
+      pollIntervalMs: 5_000,
+      hydrationDelayMs: 3_000,
+    },
+    profileDir: config.profileDir,
+  };
+}
+
+/**
+ * Generate a video using a browser-automated video generation site.
+ *
+ * This is a generic implementation that can be adapted to different
+ * video generation platforms by providing appropriate selectors.
+ */
+export async function generateVideoViaWeb(
+  config: VideoProviderConfig,
+  request: VideoGenRequest,
+  outputDir: string,
+  filename: string,
+): Promise<VideoGenResult | null> {
+  // Convert to SiteAutomationConfig and use the new chain-based implementation
+  const siteConfig = legacyConfigToSiteConfig(config);
+  return generateVideoViaSiteConfig(siteConfig, request, outputDir, filename);
+}
+
+async function uploadImageChain(page: Page, chain: SelectorChain, imagePath: string): Promise<void> {
   try {
-    const [fileChooser] = await Promise.all([
-      page.waitForEvent('filechooser', { timeout: 5_000 }),
-      page.click(triggerSelector),
-    ]);
-    await fileChooser.setFiles(imagePath);
-    await page.waitForTimeout(2_000); // wait for upload to process
-  } catch {
-    // fallback: try direct input[type=file]
-    const input = page.locator('input[type="file"]').first();
-    if (await input.count() > 0) {
-      await input.setInputFiles(imagePath);
+    const result = await resolveSelector(page, chain);
+    if (result) {
+      const [fileChooser] = await Promise.all([
+        page.waitForEvent('filechooser', { timeout: 5_000 }),
+        result.locator.first().click(),
+      ]);
+      await fileChooser.setFiles(imagePath);
       await page.waitForTimeout(2_000);
+      return;
     }
+  } catch {
+    // fallback below
   }
+  // fallback: try direct input[type=file]
+  const input = page.locator('input[type="file"]').first();
+  if (await input.count() > 0) {
+    await input.setInputFiles(imagePath);
+    await page.waitForTimeout(2_000);
+  }
+}
+
+async function uploadImage(page: Page, triggerSelector: string, imagePath: string): Promise<void> {
+  await uploadImageChain(page, selectorToChain(triggerSelector), imagePath);
 }
 
 /** Default Seedance video provider config (placeholder selectors — need real ones) */

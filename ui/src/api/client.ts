@@ -1,4 +1,4 @@
-import type { Account, ChatMode, ModelOption, ProviderId, ProviderInfo, TaskItem, WorkbenchState, PipelineProject, PipelineScene, QualityTier, PipelineStage, ModelOverrides, EnvironmentStatus, TTSSettings, VideoProviderConfig } from '../types';
+import type { Account, ChatMode, ModelOption, ProviderId, ProviderInfo, TaskItem, WorkbenchState, PipelineProject, PipelineScene, QualityTier, PipelineStage, ModelOverrides, EnvironmentStatus, TTSSettings, VideoProviderConfig, SiteAutomationConfig } from '../types';
 
 /** Detect API base — Vite proxy in dev, direct backend in Tauri. */
 function getApiBase(): string {
@@ -241,4 +241,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+
+  // ---- Provider Presets ----
+  listPresets: () =>
+    request<Array<{ id: string; label: string; type: string }>>('/presets'),
+
+  getPreset: (id: string) =>
+    request<SiteAutomationConfig>(`/presets/${encodeURIComponent(id)}`),
 };
