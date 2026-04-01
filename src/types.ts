@@ -12,6 +12,10 @@ export type {
   ModelOption,
   TaskItem,
   WorkbenchState,
+  SelectorStrategy,
+  SelectorChain,
+  SiteAutomationConfig,
+  SelectorHealth,
 } from '../shared/types.js';
 
 import type { ProviderId, ModelOption, WorkbenchState } from '../shared/types.js';

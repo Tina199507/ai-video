@@ -4,7 +4,9 @@
 /*  runtime-detected capability data.                                 */
 /* ------------------------------------------------------------------ */
 
-import type { ProviderId } from '../types.js';
+import type { ProviderId, SelectorHealth } from '../types.js';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { dirname } from 'node:path';
 
 /** Capabilities a provider can support. */
 export interface ProviderCapability {
@@ -33,6 +35,8 @@ export interface ProviderCapability {
     imageGenerations?: number;
     videoGenerations?: number;
   };
+  /** Selector health from the most recent probe. */
+  selectorHealth?: SelectorHealth;
 }
 
 /** Default capabilities for known built-in providers. */
@@ -101,11 +105,17 @@ const BUILTIN_CAPABILITIES: Record<string, Omit<ProviderCapability, 'providerId'
  */
 export class ProviderCapabilityRegistry {
   private capabilities = new Map<string, ProviderCapability>();
+  private savePath: string | null = null;
 
-  constructor() {
+  constructor(savePath?: string) {
     // Seed with built-in defaults
     for (const [id, cap] of Object.entries(BUILTIN_CAPABILITIES)) {
       this.capabilities.set(id, { providerId: id, ...cap });
+    }
+    // Load persisted overrides if path provided
+    if (savePath) {
+      this.savePath = savePath;
+      this.loadFromDisk();
     }
   }
 
@@ -201,5 +211,71 @@ export class ProviderCapabilityRegistry {
       result[id] = { ...cap };
     }
     return result;
+  }
+
+  /**
+   * Update selector health for a provider.
+   */
+  updateSelectorHealth(providerId: string, health: SelectorHealth): void {
+    const cap = this.capabilities.get(providerId);
+    if (cap) {
+      cap.selectorHealth = health;
+      cap.lastProbed = health.lastProbed;
+      this.persist();
+    }
+  }
+
+  /* ---- Persistence ---- */
+
+  private loadFromDisk(): void {
+    if (!this.savePath) return;
+    try {
+      if (existsSync(this.savePath)) {
+        const raw = readFileSync(this.savePath, 'utf-8');
+        const data = JSON.parse(raw) as Record<string, Partial<ProviderCapability>>;
+        for (const [id, cap] of Object.entries(data)) {
+          const existing = this.capabilities.get(id);
+          if (existing) {
+            // Merge persisted data onto built-in defaults
+            if (cap.selectorHealth) existing.selectorHealth = cap.selectorHealth;
+            if (cap.lastProbed) existing.lastProbed = cap.lastProbed;
+            if (cap.dailyLimits) existing.dailyLimits = cap.dailyLimits;
+            if (typeof cap.quotaExhausted === 'boolean') existing.quotaExhausted = cap.quotaExhausted;
+          } else {
+            // Custom provider — restore fully
+            this.capabilities.set(id, {
+              providerId: id,
+              text: cap.text ?? false,
+              imageGeneration: cap.imageGeneration ?? false,
+              videoGeneration: cap.videoGeneration ?? false,
+              fileUpload: cap.fileUpload ?? false,
+              webSearch: cap.webSearch ?? false,
+              tts: cap.tts ?? false,
+              models: cap.models ?? [],
+              quotaExhausted: cap.quotaExhausted ?? false,
+              lastProbed: cap.lastProbed,
+              dailyLimits: cap.dailyLimits,
+              selectorHealth: cap.selectorHealth,
+            });
+          }
+        }
+      }
+    } catch {
+      // Corrupted file — start fresh
+    }
+  }
+
+  /**
+   * Persist current state to disk (non-critical — errors are swallowed).
+   */
+  persist(): void {
+    if (!this.savePath) return;
+    try {
+      const dir = dirname(this.savePath);
+      if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+      writeFileSync(this.savePath, JSON.stringify(this.toJSON(), null, 2));
+    } catch {
+      // Non-critical — ignore write errors
+    }
   }
 }

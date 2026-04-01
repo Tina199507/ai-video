@@ -10,6 +10,7 @@ import type { VideoProviderConfig } from '../adapters/videoProvider.js';
 import { isEdgeTTSAvailable, listVoices } from '../adapters/ttsProvider.js';
 import { isFFmpegAvailable } from '../adapters/ffmpegAssembler.js';
 import { execSync } from 'node:child_process';
+import { listPresets, getPreset } from '../providerPresets.js';
 
 /* ---- Helper: check if Playwright is installed ---- */
 
@@ -459,6 +460,24 @@ export function pipelineRoutes(ctx: PipelineContext): Route[] {
         const body = await parseJsonBody<Record<string, any>>(req);
         ctx.orchestrator.providerRegistry.register(match.groups!.id, body);
         json(res, 200, ctx.orchestrator.providerRegistry.get(match.groups!.id));
+      },
+    },
+
+    /* ---- Provider presets ---- */
+    {
+      method: 'GET',
+      pattern: /^\/api\/presets$/,
+      handler: (_req, res) => {
+        json(res, 200, listPresets());
+      },
+    },
+    {
+      method: 'GET',
+      pattern: /^\/api\/presets\/(?<id>[^/]+)$/,
+      handler: (_req, res, match) => {
+        const preset = getPreset(decodeURIComponent(match.groups!.id));
+        if (!preset) return json(res, 404, { error: 'Preset not found' });
+        json(res, 200, preset);
       },
     },
 

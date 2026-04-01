@@ -9,7 +9,7 @@ import { useWorkbench } from '../hooks/useWorkbench';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
-import type { QualityTier, EnvironmentStatus, TTSSettings, VideoProviderConfig } from '../types';
+import type { QualityTier, EnvironmentStatus, TTSSettings, VideoProviderConfig, SelectorStrategy } from '../types';
 
 type Tab = 'environment' | 'ai' | 'accounts' | 'video' | 'tts';
 
@@ -498,6 +498,10 @@ function VideoProviderTab() {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState('');
 
+  // Preset state
+  const [presets, setPresets] = useState<Array<{ id: string; label: string; type: string }>>([]);
+  const [loadingPresets, setLoadingPresets] = useState(false);
+
   // Form state
   const [url, setUrl] = useState('');
   const [promptInput, setPromptInput] = useState('');
@@ -528,7 +532,42 @@ function VideoProviderTab() {
     api.getDataDir().then(({ dataDir }) => {
       if (!profileDir) setProfileDir(`${dataDir}/profiles/video`);
     }).catch(console.error);
+
+    // Load presets
+    setLoadingPresets(true);
+    api.listPresets()
+      .then(setPresets)
+      .catch(console.error)
+      .finally(() => setLoadingPresets(false));
   }, []);
+
+  /** Flatten a SelectorChain array to a CSS selector string for the form */
+  const chainToStr = (chain?: SelectorStrategy[]): string => {
+    if (!chain || chain.length === 0) return '';
+    return chain
+      .filter(s => s.method === 'css')
+      .sort((a, b) => b.priority - a.priority)
+      .map(s => s.selector)
+      .join(', ') || chain[0].selector;
+  };
+
+  const handleImportPreset = async (presetId: string) => {
+    try {
+      const preset = await api.getPreset(presetId);
+      setUrl(preset.siteUrl);
+      setPromptInput(chainToStr(preset.selectors.promptInput));
+      setGenerateButton(chainToStr(preset.selectors.generateButton));
+      setVideoResult(chainToStr(preset.selectors.resultElement));
+      setImageUploadTrigger(chainToStr(preset.selectors.imageUploadTrigger));
+      setProgressIndicator(chainToStr(preset.selectors.progressIndicator));
+      setDownloadButton(chainToStr(preset.selectors.downloadButton));
+      setMaxWaitMs(preset.timing.maxWaitMs);
+      if (preset.profileDir) setProfileDir(preset.profileDir);
+      setStatus(`✅ 已导入「${preset.label}」预设，请检查后保存`);
+    } catch (err) {
+      setStatus(`❌ ${err instanceof Error ? err.message : '导入失败'}`);
+    }
+  };
 
   const handleSave = async () => {
     if (!url.trim() || !promptInput.trim() || !generateButton.trim() || !videoResult.trim()) {
@@ -582,26 +621,52 @@ function VideoProviderTab() {
 
   if (loading) return <p className="text-zinc-500 text-sm">加载中...</p>;
 
+  const videoPresets = presets.filter(p => p.type === 'video');
+
   return (
     <div className="space-y-6">
+      {/* Preset import */}
+      {videoPresets.length > 0 && (
+        <Card>
+          <h3 className="text-sm font-bold text-white mb-3 uppercase tracking-wider">📦 从预设导入</h3>
+          <p className="text-xs text-zinc-500 mb-3">
+            选择一个预设模板快速填充配置。预设包含经过验证的选择器，比手动配置更稳定可靠。
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {videoPresets.map(preset => (
+              <Button
+                key={preset.id}
+                variant="outline"
+                size="sm"
+                onClick={() => handleImportPreset(preset.id)}
+                disabled={loadingPresets}
+              >
+                📋 {preset.label}
+              </Button>
+            ))}
+          </div>
+        </Card>
+      )}
+
       <Card>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-bold text-white uppercase tracking-wider">视频生成站点配置</h3>
           {config ? <Badge variant="success">已配置</Badge> : <Badge variant="neutral">未配置</Badge>}
         </div>
         <p className="text-xs text-zinc-500 mb-4">
-          配置浏览器自动化视频生成站点（如 Seedance）。系统将通过 Playwright 操控浏览器在该站点生成视频。
+          配置浏览器自动化视频生成站点（如即梦、Seedance）。系统将通过 Playwright 操控浏览器在该站点生成视频。
+          支持多选择器（逗号分隔），系统会按优先级依次尝试。
         </p>
 
         <div className="space-y-3">
-          <InputField label="站点 URL *" value={url} onChange={setUrl} placeholder="https://seedance.lol/" />
+          <InputField label="站点 URL *" value={url} onChange={setUrl} placeholder="https://jimeng.jianying.com/ai-tool/home?type=video&workspace=0" />
           <div className="grid grid-cols-2 gap-3">
-            <InputField label="提示输入选择器 *" value={promptInput} onChange={setPromptInput} placeholder="textarea" />
-            <InputField label="生成按钮选择器 *" value={generateButton} onChange={setGenerateButton} placeholder='button[type="submit"]' />
-            <InputField label="视频结果选择器 *" value={videoResult} onChange={setVideoResult} placeholder="video" />
-            <InputField label="图片上传触发器" value={imageUploadTrigger} onChange={setImageUploadTrigger} placeholder='input[type="file"]' />
-            <InputField label="进度指示器选择器" value={progressIndicator} onChange={setProgressIndicator} placeholder=".progress-bar" />
-            <InputField label="下载按钮选择器" value={downloadButton} onChange={setDownloadButton} placeholder=".download-btn" />
+            <InputField label="提示输入选择器 *" value={promptInput} onChange={setPromptInput} placeholder='textarea, div[contenteditable="true"], [role="textbox"]' />
+            <InputField label="生成按钮选择器 *" value={generateButton} onChange={setGenerateButton} placeholder='button:has-text("生成"), button:has-text("发送")' />
+            <InputField label="视频结果选择器 *" value={videoResult} onChange={setVideoResult} placeholder="video, [class*='video'] video" />
+            <InputField label="图片上传触发器" value={imageUploadTrigger} onChange={setImageUploadTrigger} placeholder='input[type="file"], [class*="upload"]' />
+            <InputField label="进度指示器选择器" value={progressIndicator} onChange={setProgressIndicator} placeholder='[class*="loading"], [class*="progress"], .semi-spin' />
+            <InputField label="下载按钮选择器" value={downloadButton} onChange={setDownloadButton} placeholder='button:has-text("下载"), a[download]' />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>

@@ -105,6 +105,99 @@ export type PipelineEvent =
   | { type: 'pipeline_scene_review'; payload: { projectId: string; sceneId: string; status: string } }
   | { type: 'pipeline_assembly_progress'; payload: { projectId: string; percent: number; message: string } };
 
+/* ---- Selector chain (resilient multi-strategy selectors) ---- */
+
+/**
+ * A single selector strategy — one attempt at finding a DOM element.
+ * Multiple strategies form a SelectorChain for resilient element discovery.
+ */
+export interface SelectorStrategy {
+  /** The selector string (CSS, text pattern, role, etc.) */
+  selector: string;
+  /** How to interpret the selector */
+  method: 'css' | 'text' | 'role' | 'testid' | 'xpath';
+  /** Higher priority = tried first (descending). Default 1. */
+  priority: number;
+  /** ISO timestamp of last successful match. */
+  lastWorked?: string;
+  /** Consecutive failure count. */
+  failCount?: number;
+}
+
+/**
+ * An ordered list of selector strategies to try.
+ * The system tries each in priority order (desc) and uses the first match.
+ */
+export type SelectorChain = SelectorStrategy[];
+
+/**
+ * Unified site automation config — describes how to automate any
+ * free-tier AI site (chat, image generation, or video generation).
+ */
+export interface SiteAutomationConfig {
+  /** Unique identifier (e.g. 'jimeng-video', 'chatgpt'). */
+  id: string;
+  /** Display label (e.g. '即梦（视频生成）'). */
+  label: string;
+  /** What kind of site this is. */
+  type: 'chat' | 'image' | 'video' | 'multi';
+  /** URL to navigate to. */
+  siteUrl: string;
+  /** What this site can do. */
+  capabilities: {
+    text?: boolean;
+    image?: boolean;
+    video?: boolean;
+    fileUpload?: boolean;
+    webSearch?: boolean;
+  };
+  /** Selectors for automation — each is a chain of fallback strategies. */
+  selectors: {
+    /* Common */
+    promptInput: SelectorChain;
+    generateButton?: SelectorChain;
+    /* Chat-specific */
+    responseBlock?: SelectorChain;
+    readyIndicator?: SelectorChain;
+    quotaExhaustedIndicator?: SelectorChain;
+    modelPickerTrigger?: SelectorChain;
+    modelOptionSelector?: SelectorChain;
+    sendButton?: SelectorChain;
+    /* Image/Video result */
+    resultElement?: SelectorChain;
+    progressIndicator?: SelectorChain;
+    downloadButton?: SelectorChain;
+    imageUploadTrigger?: SelectorChain;
+    fileUploadTrigger?: SelectorChain;
+  };
+  /** Timing configuration. */
+  timing: {
+    maxWaitMs: number;
+    pollIntervalMs: number;
+    hydrationDelayMs: number;
+  };
+  /** Persistent browser profile directory. */
+  profileDir: string;
+  /** Optional free-tier daily limits. */
+  dailyLimits?: {
+    text?: number;
+    images?: number;
+    videos?: number;
+  };
+}
+
+/**
+ * Selector health summary for a site — result of a selector probe.
+ */
+export interface SelectorHealth {
+  /** ISO timestamp of last probe. */
+  lastProbed?: string;
+  /** Selector names where all strategies failed. */
+  brokenSelectors: string[];
+  /** 0–100 health score. */
+  healthScore: number;
+}
+
 /* ---- Workbench types (shared between backend and frontend) ---- */
 
 /** Provider identifier — built-in providers plus any user-added custom providers. */

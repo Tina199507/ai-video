@@ -10,6 +10,10 @@ export type {
   ModelOption,
   TaskItem,
   WorkbenchState,
+  SelectorStrategy,
+  SelectorChain,
+  SiteAutomationConfig,
+  SelectorHealth,
 } from '../../shared/types';
 
 export type WorkbenchEvent =
