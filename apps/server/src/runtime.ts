@@ -1,4 +1,5 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import { timingSafeEqual } from 'node:crypto';
 import type { Workbench } from './workbench.js';
 import type { WorkbenchEvent } from './types.js';
 import { WB_EVENT } from './types.js';
@@ -137,15 +138,45 @@ function setCors(req: IncomingMessage, res: ServerResponse, allowedOrigins: stri
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 }
 
+/**
+ * Set standard security response headers on every response.
+ * Prevents MIME sniffing, clickjacking, and information leakage.
+ */
+function setSecurityHeaders(res: ServerResponse): void {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  // Explicitly disable legacy XSS filter (modern browsers use CSP instead)
+  res.setHeader('X-XSS-Protection', '0');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+}
+
+/**
+ * Constant-time API key comparison to prevent timing attacks.
+ * Uses `crypto.timingSafeEqual` so the comparison time is independent
+ * of how many characters match.
+ */
 function checkApiKey(req: IncomingMessage, apiKey: string): boolean {
   if (!apiKey) return true;
   const header = req.headers.authorization ?? '';
-  return header === `Bearer ${apiKey}`;
+  const expected = `Bearer ${apiKey}`;
+  // Length check first (timingSafeEqual requires equal-length buffers)
+  if (header.length !== expected.length) return false;
+  return timingSafeEqual(Buffer.from(header), Buffer.from(expected));
 }
 
+/**
+ * Derive the client IP from the request.
+ *
+ * `X-Forwarded-For` is only trusted when the `TRUST_PROXY=1` environment
+ * variable is set; otherwise the direct socket address is used.  Blindly
+ * trusting `X-Forwarded-For` without this guard allows any client to
+ * spoof its IP and bypass per-IP rate limiting.
+ */
 function getClientIp(req: IncomingMessage): string {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (typeof forwarded === 'string') return forwarded.split(',')[0]!.trim();
+  if (process.env.TRUST_PROXY === '1') {
+    const forwarded = req.headers['x-forwarded-for'];
+    if (typeof forwarded === 'string') return forwarded.split(',')[0]!.trim();
+  }
   return req.socket.remoteAddress ?? 'unknown';
 }
 
@@ -212,6 +243,7 @@ export function startServerRuntime(options: ServerRuntimeOptions): ServerRuntime
     log.debug('request', { method, path });
 
     setCors(req, res, allowedOrigins);
+    setSecurityHeaders(res);
 
     if (method === 'OPTIONS') {
       res.writeHead(204);
@@ -221,7 +253,7 @@ export function startServerRuntime(options: ServerRuntimeOptions): ServerRuntime
 
     const clientIp = getClientIp(req);
     const rl = rateLimiter.consume(clientIp);
-    res.setHeader('X-RateLimit-Limit', rateLimiter['config'].max);
+    res.setHeader('X-RateLimit-Limit', rateLimiter.maxRequests);
     res.setHeader('X-RateLimit-Remaining', rl.remaining);
     if (!rl.allowed) {
       res.setHeader('Retry-After', Math.ceil(rl.retryAfterMs / 1000));
@@ -229,6 +261,9 @@ export function startServerRuntime(options: ServerRuntimeOptions): ServerRuntime
     }
 
     if (method === 'GET' && path === '/metrics') {
+      if (!checkApiKey(req, apiKey)) {
+        return json(res, 401, { error: 'Unauthorized — invalid or missing API key' });
+      }
       res.writeHead(200, {
         'Content-Type': 'text/plain; version=0.0.4; charset=utf-8',
         'Cache-Control': 'no-cache',

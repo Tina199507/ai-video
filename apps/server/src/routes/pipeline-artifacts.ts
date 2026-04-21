@@ -1,6 +1,7 @@
 // @ts-nocheck -- see tsconfig.json noUncheckedIndexedAccess migration (scripts/check-strict-progress.mjs)
 import { existsSync, createReadStream, statSync, readFileSync, writeFileSync } from 'node:fs';
-import { basename, extname, resolve, normalize, join } from 'node:path';
+import { basename, extname, resolve, join } from 'node:path';
+import { ensurePathWithinBase } from '@ai-video/lib/pathSafety.js';
 import { ARTIFACT, EDITABLE_ARTIFACTS } from '.././constants.js';
 import { json, parseJsonBody, type Route } from './helpers.js';
 import type { PipelineService } from '@ai-video/pipeline-core/pipelineService.js';
@@ -147,8 +148,10 @@ export function pipelineArtifactRoutes(svc: PipelineService): Route[] {
         const projectDir = svc.getProjectDir(match.groups!.id);
         const filename = match.groups!.filename;
         const assetsDir = resolve(projectDir, 'assets');
-        const filePath = resolve(assetsDir, filename);
-        if (!normalize(filePath).startsWith(normalize(assetsDir))) {
+        let filePath: string;
+        try {
+          filePath = ensurePathWithinBase(assetsDir, resolve(assetsDir, filename), 'filename');
+        } catch {
           return json(res, 403, { error: 'Forbidden' });
         }
         if (!existsSync(filePath)) {
@@ -177,10 +180,11 @@ export function pipelineArtifactRoutes(svc: PipelineService): Route[] {
       pattern: /^\/api\/assets\/(.+)$/,
       handler: (_req, res, match) => {
         const relPath = decodeURIComponent(match[1]);
-        // Security: prevent path traversal
         const assetsDir = resolve(svc.getDataDir(), 'assets');
-        const filePath = resolve(assetsDir, relPath);
-        if (!normalize(filePath).startsWith(normalize(assetsDir))) {
+        let filePath: string;
+        try {
+          filePath = ensurePathWithinBase(assetsDir, resolve(assetsDir, relPath), 'relPath');
+        } catch {
           return json(res, 403, { error: 'Forbidden' });
         }
         if (!existsSync(filePath)) {

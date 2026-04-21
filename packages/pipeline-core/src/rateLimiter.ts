@@ -30,6 +30,11 @@ export class RateLimiter {
     this.sweepInterval.unref(); // don't prevent process exit
   }
 
+  /** Maximum requests allowed per window (public accessor avoids bracket access). */
+  get maxRequests(): number {
+    return this.config.max;
+  }
+
   /**
    * Check whether the key is allowed, and consume one token if so.
    * Returns { allowed, remaining, retryAfterMs }.

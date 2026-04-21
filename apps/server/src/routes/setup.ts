@@ -8,6 +8,15 @@ import { spawnSync, spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { resolveChromiumChannel } from '@ai-video/pipeline-core/browserManager.js';
 
+/**
+ * When `DISABLE_SETUP_ROUTES=1` the package-install endpoints
+ * (`/api/setup/install-browser` and `/api/setup/install-edge-tts`) return
+ * 403 instead of spawning child processes.  Set this in production
+ * environments where arbitrary software installation should not be triggered
+ * via the API.
+ */
+const SETUP_INSTALL_DISABLED = process.env.DISABLE_SETUP_ROUTES === '1';
+
 function runSilent(file: string, args: string[], timeoutMs = 5000): boolean {
   try {
     const res = spawnSync(file, args, {
@@ -89,6 +98,10 @@ export function setupRoutes(svc: PipelineService): Route[] {
       method: 'POST',
       pattern: /^\/api\/setup\/install-browser$/,
       handler: (_req, res) => {
+        if (SETUP_INSTALL_DISABLED) {
+          return json(res, 403, { error: 'Setup install routes are disabled (DISABLE_SETUP_ROUTES=1)' });
+        }
+
         res.writeHead(200, {
           'Content-Type': 'text/event-stream',
           'Cache-Control': 'no-cache',
@@ -134,6 +147,10 @@ export function setupRoutes(svc: PipelineService): Route[] {
       method: 'POST',
       pattern: /^\/api\/setup\/install-edge-tts$/,
       handler: (_req, res) => {
+        if (SETUP_INSTALL_DISABLED) {
+          return json(res, 403, { error: 'Setup install routes are disabled (DISABLE_SETUP_ROUTES=1)' });
+        }
+
         res.writeHead(200, {
           'Content-Type': 'text/event-stream',
           'Cache-Control': 'no-cache',
