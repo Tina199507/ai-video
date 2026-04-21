@@ -1,0 +1,16 @@
+{
+  "name": "@ai-video/lib",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Reusable utilities (atomicJsonStore, kvStore, retry, abortable, logger, schemaVersion).",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*"
+  },
+  "scripts": {
+    "test": "vitest run --dir src"
+  }
+}

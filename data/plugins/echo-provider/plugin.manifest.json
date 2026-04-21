@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "ai-video.example.echo-provider",
+  "name": "Echo Provider Example",
+  "version": "0.1.0",
+  "description": "Reference provider plugin: registers an echo chat adapter that just returns the prompt back. Trusted via sha256 manifest pin in this repo so the example works out-of-the-box; switch to ed25519 signing for production deployments.",
+  "author": "ai-video team",
+  "homepage": "https://github.com/ai-video/ai-video",
+  "kind": "provider",
+  "entry": "dist/index.mjs",
+  "permissions": ["logger"],
+  "providers": ["ai-video.example.echo-provider"]
+}

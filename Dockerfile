@@ -1,11 +1,15 @@
 # ---- Stage 1: Build frontend ----
 FROM node:20-slim AS ui-build
-WORKDIR /app/ui
-COPY ui/package.json ui/package-lock.json* ./
-RUN npm ci
-COPY ui/ ./
-COPY shared/ /app/shared/
-RUN npm run build
+WORKDIR /app
+# Frontend lives at apps/ui-shell after direction A-2; the workspace
+# alias @ai-video/shared resolves through the symlinked workspace tree
+# so we copy the shared package, the ui-shell app, and the root
+# package.json (which declares the workspace layout).
+COPY package.json package-lock.json* ./
+COPY packages/shared/ ./packages/shared/
+COPY apps/ui-shell/ ./apps/ui-shell/
+RUN npm ci --workspace @ai-video/app-ui-shell --include-workspace-root --ignore-scripts
+RUN npm run build --workspace @ai-video/app-ui-shell
 
 # ---- Stage 2: Runtime ----
 FROM node:20-slim
@@ -22,14 +26,24 @@ ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
 
 # Copy backend
 COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev
+# Workspaces declared in root package.json require the workspace
+# package manifests to be present BEFORE `npm ci`, otherwise npm
+# refuses to resolve the workspace tree.
+COPY packages/ ./packages/
+COPY apps/ ./apps/
 
-COPY src/ ./src/
-COPY shared/ ./shared/
-COPY tsconfig.json ./
+# NOTE: We intentionally install dev deps because the runtime entry uses `tsx`
+# to execute TypeScript directly. If you switch to a compiled `dist/` build,
+# you can reintroduce `--omit=dev` here.
+RUN npm ci --ignore-scripts \
+    && npm prune --production=false
+
+# Root `src/` holds optional repo-root TS compatibility shims; runtime uses
+# `apps/server/src/main.ts` and workspace packages only — no COPY needed.
+COPY tsconfig.json tsconfig.base.json ./
 
 # Copy built frontend (serve as static if needed)
-COPY --from=ui-build /app/ui/dist ./ui/dist
+COPY --from=ui-build /app/apps/ui-shell/dist ./apps/ui-shell/dist
 
 # Copy static data
 COPY data/ ./data/
@@ -50,4 +64,4 @@ ENV PORT=3220
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD node -e "fetch('http://localhost:3220/health').then(r=>{if(!r.ok)throw r.status}).catch(()=>process.exit(1))"
 
-CMD ["node", "--import", "tsx", "src/server.ts"]
+CMD ["node", "--import", "tsx", "apps/server/src/main.ts"]

@@ -10,11 +10,13 @@ node_modules
 coverage
 dist
 .DS_Store
-browser-shell/node_modules
-ui/node_modules
-ui/dist
+apps/desktop/node_modules
+apps/desktop/dist
+apps/desktop/release
+apps/ui-shell/node_modules
+apps/ui-shell/dist
 src/**/*.test.ts
-src/testing/
+scripts/testing/
 src/docs/
 vitest.config.ts
 vitest.workspace.ts

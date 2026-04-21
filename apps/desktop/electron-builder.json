@@ -1,0 +1,42 @@
+{
+  "appId": "com.ai-video-pipeline.browser-shell",
+  "productName": "AI Video Pipeline",
+  "electronVersion": "41.2.1",
+  "directories": {
+    "output": "release"
+  },
+  "files": [
+    "dist/**/*",
+    "package.json"
+  ],
+  "extraResources": [
+    {
+      "from": "../ui-shell/dist",
+      "to": "ui-dist",
+      "filter": ["**/*"]
+    },
+    {
+      "from": "resources/ai-video-server",
+      "to": "ai-video-server"
+    },
+    {
+      "from": "resources/browsers",
+      "to": "browsers",
+      "filter": ["**/*"]
+    }
+  ],
+  "mac": {
+    "category": "public.app-category.productivity",
+    "target": ["dmg", "zip"],
+    "signIgnore": [
+      ".*[/\\\\]browsers[/\\\\].*"
+    ],
+    "strictVerify": false
+  },
+  "win": {
+    "target": ["nsis", "zip"]
+  },
+  "linux": {
+    "target": ["AppImage", "deb"]
+  }
+}

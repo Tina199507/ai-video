@@ -1,0 +1,21 @@
+{
+  "name": "@ai-video/pipeline-core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Generic compilation pipeline engine (stage registry, runner, IR, retry policies). Topic-agnostic.",
+  "dependencies": {
+    "@ai-video/lib": "*",
+    "@ai-video/pipeline-video": "*",
+    "@ai-video/shared": "*"
+  },
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*"
+  },
+  "scripts": {
+    "test": "vitest run --dir src"
+  }
+}

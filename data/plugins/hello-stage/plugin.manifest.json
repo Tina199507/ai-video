@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "ai-video.example.hello-stage",
+  "name": "Hello Stage Example",
+  "version": "0.1.0",
+  "description": "Reference stage plugin: registers PLUGIN_HELLO after REFINEMENT, logs a line and writes a tiny artifact. Trusted via sha256 manifest pin so no private key is needed.",
+  "author": "ai-video team",
+  "homepage": "https://github.com/ai-video/ai-video",
+  "kind": "stage",
+  "entry": "dist/index.mjs",
+  "permissions": ["logger", "storage"],
+  "stages": ["PLUGIN_HELLO"]
+}

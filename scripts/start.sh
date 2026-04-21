@@ -53,13 +53,9 @@ if [ ! -d "node_modules" ]; then
   echo "📦 安装后端依赖..."
   npm install
 fi
-if [ ! -d "ui/node_modules" ]; then
-  echo "📦 安装前端依赖..."
-  (cd ui && npm install)
-fi
-if [ ! -d "browser-shell/node_modules" ]; then
-  echo "📦 安装 Electron 依赖..."
-  (cd browser-shell && npm install)
+if [ ! -d "apps/ui-shell/node_modules" ] || [ ! -d "apps/desktop/node_modules" ]; then
+  echo "📦 安装前端 + Electron 工作区依赖..."
+  npm install
 fi
 
 # ── Start Electron desktop app (all browser automation runs inside Electron tabs) ──

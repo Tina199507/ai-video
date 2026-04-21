@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "outDir": "dist",
+    "rootDir": "../..",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": true,
+    "resolveJsonModule": true,
+    "sourceMap": true,
+    "paths": {
+      "@ai-video/shared": ["../../packages/shared/src/index.ts"],
+      "@ai-video/shared/*": ["../../packages/shared/src/*"]
+    }
+  },
+  "include": ["src/**/*.ts", "../../packages/shared/src/bootPhase.ts"],
+  "exclude": ["node_modules", "dist", "src/renderer", "src/preload.ts", "src/stealth-preload.ts"]
+}

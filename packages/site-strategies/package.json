@@ -1,0 +1,23 @@
+{
+  "name": "@ai-video/site-strategies",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Per-site Playwright strategies (selectors, automation flows) loaded as plugins.",
+  "dependencies": {
+    "@ai-video/adapter-common": "*",
+    "@ai-video/pipeline-core": "*",
+    "@ai-video/shared": "*",
+    "playwright": "^1.55.1"
+  },
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./videoSites": "./src/videoSites.ts",
+    "./*": "./src/*"
+  },
+  "scripts": {
+    "test": "vitest run --dir src"
+  }
+}

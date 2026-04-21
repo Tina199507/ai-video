@@ -29,30 +29,22 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install backend dependencies
-        run: npm ci
-
-      - name: Install UI dependencies
-        working-directory: ui
+      - name: Install all workspace dependencies
+        # Root install hoists @ai-video/app-ui-shell + @ai-video/app-desktop
+        # workspace deps after the direction A-2/A-3 monorepo move.
         run: npm ci
 
       - name: Build UI
-        working-directory: ui
-        run: npm run build
+        run: npm run build --workspace @ai-video/app-ui-shell
 
       - name: Build backend sidecar
         run: bash scripts/build-sidecar.sh
 
-      - name: Install browser-shell dependencies
-        working-directory: browser-shell
-        run: npm ci
-
-      - name: Build browser-shell
-        working-directory: browser-shell
-        run: npm run build
+      - name: Build desktop shell
+        run: npm run build --workspace @ai-video/app-desktop
 
       - name: Package Electron app
-        working-directory: browser-shell
+        working-directory: apps/desktop
         run: npx electron-builder --config electron-builder.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -61,5 +53,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: desktop-app-${{ matrix.os }}
-          path: browser-shell/release/*
+          path: apps/desktop/release/*
           if-no-files-found: warn

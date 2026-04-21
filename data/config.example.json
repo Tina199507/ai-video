@@ -1,0 +1,29 @@
+{
+  "_schemaVersion": 2,
+  "_comment": "Template only — copy to data/config.json (gitignored) and fill in your own secrets. Never commit the real config.json.",
+
+  "geminiApiKey": "<REPLACE_WITH_YOUR_GEMINI_API_KEY>",
+  "aivideomakerApiKey": "<REPLACE_WITH_AIVIDEOMAKER_API_KEY>",
+  "aivideomakerApiKeys": [
+    "<OPTIONAL_EXTRA_AIVIDEOMAKER_KEY_1>",
+    "<OPTIONAL_EXTRA_AIVIDEOMAKER_KEY_2>"
+  ],
+
+  "productionConcurrency": 2,
+  "maxConcurrentProjects": 1,
+  "fallbackPolicy": "confirm",
+
+  "ttsConfig": {
+    "voice": "zh-CN-XiaoxiaoNeural",
+    "rate": "+0%",
+    "pitch": "+0Hz"
+  },
+
+  "videoProviderConfig": {
+    "url": "https://jimeng.jianying.com/ai-tool/video/generate",
+    "profileDir": "",
+    "maxWaitMs": 300000
+  },
+
+  "videoModel": "可灵 2.5"
+}

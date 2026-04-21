@@ -121,7 +121,7 @@ function setupDataDir() {
 function startServer() {
   console.log('🚀 Starting backend server...');
 
-  const child = fork(join(PROJECT_ROOT, 'src/server.ts'), [], {
+  const child = fork(join(PROJECT_ROOT, 'apps/server/src/main.ts'), [], {
     cwd: PROJECT_ROOT,
     env: {
       ...process.env,

@@ -11,7 +11,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-ICONS_DIR="$SCRIPT_DIR/../browser-shell/icons"
+ICONS_DIR="$SCRIPT_DIR/../apps/desktop/icons"
 
 mkdir -p "$ICONS_DIR"
 

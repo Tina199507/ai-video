@@ -1,17 +1,8 @@
 {
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2023",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
     "outDir": "dist",
-    "rootDir": ".",
-    "declaration": true,
-    "noEmit": true,
-    "lib": ["ES2023"],
-    "types": ["node"]
+    "rootDir": "."
   },
-  "include": ["src", "shared"]
+  "include": ["scripts/tsconfig-root-stub.ts"]
 }

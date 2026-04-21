@@ -1,0 +1,17 @@
+{
+  "$schema": "./schemas/trusted-plugins.schema.json",
+  "version": 1,
+  "comment": "Allow-list for plugins loaded from data/plugins/ or installed via npm. Each entry maps a plugin id to either a public key (verify ed25519 signature against this key) or a content-hash pin (sha256 of the manifest's canonical JSON form). Strict mode in the loader requires every plugin to have an entry here. The two example entries below cover the in-tree demo plugins shipped under data/plugins/; remove them in production deployments.",
+  "plugins": {
+    "ai-video.example.hello-stage": {
+      "manifestSha256": "116abac043410e93a9e2784ec2b715ed15e3e9c8cfdcd719169a34c43dd95888",
+      "permissions": ["logger", "storage"],
+      "note": "demo stage plugin shipped with the repo — registers PLUGIN_HELLO after REFINEMENT"
+    },
+    "ai-video.example.echo-provider": {
+      "manifestSha256": "893bf44a4295740aadd6ab7b81f620f9e3ff1094a41cace1f5faf82cf7f89b28",
+      "permissions": ["logger"],
+      "note": "demo provider plugin shipped with the repo — registers an echo chat adapter"
+    }
+  }
+}

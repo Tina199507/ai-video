@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ai-video/schemas/trusted-plugins.schema.json",
+  "title": "TrustedPlugins",
+  "description": "Whitelist of plugin ids the host is willing to dynamically load. Each entry pins either a public key (verify the manifest signature against this key) or a sha256 content hash (verify the manifest matches a known-good canonical form).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "plugins"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "comment": { "type": "string" },
+    "version": { "type": "integer", "const": 1 },
+    "plugins": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "publicKey": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Hex-encoded ed25519 public key (32 bytes)."
+          },
+          "manifestSha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Optional alternative: sha256 over the canonical manifest body."
+          },
+          "permissions": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Override permissions granted to this plugin (intersection with manifest.permissions)."
+          },
+          "note": { "type": "string" }
+        },
+        "anyOf": [
+          { "required": ["publicKey"] },
+          { "required": ["manifestSha256"] }
+        ]
+      }
+    }
+  }
+}

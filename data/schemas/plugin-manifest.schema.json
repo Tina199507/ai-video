@@ -1,0 +1,138 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ai-video/schemas/plugin-manifest.schema.json",
+  "title": "PluginManifest",
+  "description": "Manifest shipped alongside an out-of-tree pipeline plugin. Loaded and verified by src/pipeline/pluginLoader.ts before the plugin module is imported.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "version", "kind", "entry"],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1,
+      "description": "Manifest schema version. Bump when breaking the on-disk shape."
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9](\\.[a-z0-9][a-z0-9-]*[a-z0-9])*$",
+      "minLength": 3,
+      "maxLength": 64,
+      "description": "Plugin id, used as the trust whitelist key. Stable across versions."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Human-readable display name."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[0-9A-Za-z.-]+)?$",
+      "description": "Plugin version in semver format."
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 512
+    },
+    "author": {
+      "type": "string",
+      "maxLength": 128
+    },
+    "homepage": {
+      "type": "string",
+      "format": "uri"
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["stage", "provider", "service"],
+      "description": "What surface this plugin contributes — a pipeline stage definition, a provider plugin, or a swappable service implementation."
+    },
+    "entry": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^(?!\\.\\./)(?!/)[^\\0]+\\.(mjs|js|cjs)$",
+      "description": "Path to the plugin entry module relative to the manifest. Must not escape the plugin directory."
+    },
+    "engines": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "aiVideo": {
+          "type": "string",
+          "description": "Compatible host version range (npm semver range syntax)."
+        },
+        "node": {
+          "type": "string",
+          "description": "Compatible Node.js version range."
+        }
+      }
+    },
+    "permissions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "fs.read",
+          "fs.write",
+          "net",
+          "exec",
+          "ffmpeg",
+          "tts",
+          "storage",
+          "cache",
+          "logger"
+        ]
+      },
+      "description": "Capabilities the plugin requests from PipelineServices and the host environment. Loader uses this to decide which services to inject (or refuse to load if a permission is denied)."
+    },
+    "stages": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "description": "If kind=stage, the list of stage names this plugin registers."
+    },
+    "providers": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "description": "If kind=provider, the list of provider plugin ids this entry registers."
+    },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "value"],
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "const": "ed25519"
+        },
+        "value": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{128}$",
+          "description": "Hex-encoded 64-byte ed25519 signature over the canonical JSON manifest body (excluding the signature field)."
+        },
+        "publicKey": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "Hex-encoded ed25519 public key (32 bytes)."
+        }
+      },
+      "description": "Optional ed25519 signature. Required when the plugin is loaded under strict mode or when the host's trusted-plugins.json demands it."
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Free-form metadata bag for plugin-specific extensions."
+    }
+  }
+}

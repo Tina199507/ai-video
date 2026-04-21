@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [main]
 
+# Align PR checks with `npm run ci:verify` (minus audit noise).
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -20,34 +25,77 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
+          cache: npm
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Install ui dependencies
-        working-directory: ui
-        run: npm ci
-
-      - name: Install browser-shell dependencies
-        working-directory: browser-shell
+      - name: Install dependencies (root + workspaces)
+        # Root install hoists @ai-video/app-ui-shell + @ai-video/app-desktop
+        # workspace deps after the direction A-2/A-3 monorepo move.
         run: npm ci
 
       - name: Lint dependencies (TECH_CONSTRAINTS.md compliance)
         run: npm run lint:deps:diff -- --skip-security
 
+      - name: Package boundary (no illicit packages→src imports)
+        run: npm run check:package-imports
+
+      - name: Route error sanitization heuristic
+        run: npm run check:route-sanitize
+
+      - name: Legacy src shim guard
+        run: npm run check:src-shims
+
+      - name: Legacy src/routes recursive shim guard
+        run: npm run check:src-routes-shims
+
+      - name: Legacy src/adapters recursive shim guard
+        run: npm run check:src-adapters-shims
+
       - name: Security audit
         run: npm audit --audit-level=high || echo "::warning::Security vulnerabilities found. Run 'npm audit fix' to resolve."
 
-      - name: Typecheck backend
-        run: npx tsc --noEmit
+      # Workspace `tsconfig`s (shared/lib/pipeline-*/apps/server) — no repo-root `src/`.
+      - name: Typecheck monorepo packages + apps/server
+        run: npm run build
+
+      - name: Strict-progress regression guard (@ts-nocheck count)
+        run: npm run check:strict-progress
 
       - name: Typecheck frontend
-        working-directory: ui
-        run: npx tsc -b
+        run: npm run typecheck --workspace @ai-video/app-ui-shell
 
-      - name: Typecheck browser-shell
-        working-directory: browser-shell
-        run: npx tsc --noEmit
+      - name: Typecheck desktop shell
+        run: npm run typecheck --workspace @ai-video/app-desktop
 
-      - name: Test
-        run: npx vitest run
+      - name: Test (Vitest — backend scripts + packages + apps)
+        run: npm test
+
+  docker-smoke:
+    runs-on: ubuntu-latest
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t ai-video:ci .
+
+      - name: Start container
+        run: |
+          docker run -d --rm --name ai-video-ci \
+            -e DATA_DIR=/tmp/ai-video-data \
+            -p 3220:3220 ai-video:ci
+          # Wait up to 60s for /health to respond
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:3220/health >/dev/null; then
+              echo "healthy after ${i}s"; break
+            fi
+            sleep 2
+          done
+          curl -fsS http://localhost:3220/health
+
+      - name: Show container logs
+        if: always()
+        run: docker logs ai-video-ci || true
+
+      - name: Stop container
+        if: always()
+        run: docker stop ai-video-ci || true

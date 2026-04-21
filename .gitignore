@@ -2,6 +2,9 @@
 node_modules/
 
 
+# Legacy top-level UI path (canonical: apps/ui-shell); ignore stray caches
+/ui/
+
 # Build artifacts
 dist/
 build/
@@ -30,6 +33,7 @@ npm-debug.log*
 
 # Test / Coverage
 coverage/
+scripts/
 
 # Documentation
 docs/
@@ -53,6 +57,12 @@ data/style-templates/
 browser/
 output/
 
+# Local Electron / Chromium profile (sometimes created beside repo root)
+ai-video-browser-shell/
+
+# Local UAT / ad-hoc backups (project snapshots, Electron profiles — not shipped)
+backups/
+
 # Misc
 *.local
 .cache/
@@ -60,6 +70,11 @@ output/
 *.pem
 *.key
 
-# Electron / Browser Shell build
-browser-shell/dist/
-browser-shell/release/
+# Electron / Browser Shell build (paths post direction A-3)
+apps/desktop/dist/
+apps/desktop/release/
+apps/desktop/resources/ai-video-server
+apps/desktop/resources/ai-video-server.exe
+apps/desktop/resources/browsers/
+apps/desktop/resources/sidecar-manifest.json
+apps/ui-shell/dist/
