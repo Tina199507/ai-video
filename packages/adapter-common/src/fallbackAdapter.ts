@@ -12,6 +12,10 @@
 import type { AIAdapter, AIRequestOptions, GenerationResult } from '@ai-video/pipeline-core/types/adapter.js';
 import type { BudgetCheckResult } from './budgetTypes.js';
 import { getAdapterHostBindings, type QuotaCapability } from './hostBindings.js';
+import { isQuotaError } from '@ai-video/lib/retry.js';
+import { createLogger } from '@ai-video/lib/logger.js';
+
+const log = createLogger('FallbackAdapter');
 
 export type FallbackPolicy = 'auto' | 'confirm' | 'block';
 
@@ -35,19 +39,6 @@ export type FallbackConfirmFn = (event: FallbackEvent) => Promise<boolean>;
  * is blocked with a FallbackBlockedError.
  */
 export type BudgetCheckerFn = () => BudgetCheckResult;
-
-function isQuotaError(err: unknown): boolean {
-  if (err && typeof err === 'object') {
-    const e = err as any;
-    if (e.isQuotaError) return true;
-    if (e.status === 429 || e.status === 503) return true;
-    const msg = (e.message ?? '').toLowerCase();
-    if (/quota|rate limit|resource_exhausted|usage cap|free plan limit|too many requests|you've reached|请求过于频繁|已达到.*使用上限/.test(msg)) {
-      return true;
-    }
-  }
-  return false;
-}
 
 /** Map adapter method names to QuotaBus capability types. */
 function methodToCapability(method: string): QuotaCapability {
@@ -149,10 +140,14 @@ export class FallbackAdapter implements AIAdapter {
       }
     }
 
-    console.log(
-      `[FallbackAdapter] ${method} quota error on ${this.primary.provider} (${errMsg}), ` +
-      `falling back to ${this.fallback.provider} (policy=${this.policy}, est. $${event.estimatedCostUsd.toFixed(4)})`
-    );
+    log.info('fallback_triggered', {
+      method,
+      primaryProvider: this.primary.provider,
+      fallbackProvider: this.fallback.provider,
+      policy: this.policy,
+      estimatedCostUsd: event.estimatedCostUsd,
+      reason: errMsg,
+    });
 
     const result = await fallbackCall();
     this.fallbackCount++;
