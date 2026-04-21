@@ -209,21 +209,28 @@ export function startServerRuntime(options: ServerRuntimeOptions): ServerRuntime
       method: 'POST',
       pattern: /^\/api\/ui-crash$/,
       handler: async (req, res) => {
+        // Limit the body even though this endpoint is unauthenticated:
+        // prevents memory exhaustion via large payloads.
+        const { readBody } = await import('./routes/helpers.js');
         let body = '';
-        req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
-        req.on('end', () => {
-          try {
-            const data = JSON.parse(body) as { message?: string; stack?: string; componentStack?: string };
-            log.error('ui_crash', undefined, {
-              message: data.message,
-              stack: data.stack,
-              componentStack: data.componentStack,
-            });
-          } catch {
-            log.error('ui_crash_parse_failed', undefined, { body: body.slice(0, 500) });
-          }
+        try {
+          body = await readBody(req, 64 * 1024); // 64 KB limit for crash reports
+        } catch {
+          // If body exceeds limit, still respond 200 to avoid crashing the reporter.
           json(res, 200, { ok: true });
-        });
+          return;
+        }
+        try {
+          const data = JSON.parse(body) as { message?: string; stack?: string; componentStack?: string };
+          log.error('ui_crash', undefined, {
+            message: data.message,
+            stack: data.stack,
+            componentStack: data.componentStack,
+          });
+        } catch {
+          log.error('ui_crash_parse_failed', undefined, { body: body.slice(0, 500) });
+        }
+        json(res, 200, { ok: true });
       },
     },
     ...workbenchRoutes(workbench, uploadDir),

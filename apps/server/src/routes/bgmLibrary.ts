@@ -1,6 +1,7 @@
 // @ts-nocheck -- see tsconfig.json noUncheckedIndexedAccess migration (scripts/check-strict-progress.mjs)
 import { existsSync, mkdirSync, readdirSync, statSync, createReadStream, copyFileSync, unlinkSync } from 'node:fs';
-import { join, extname, basename, resolve, normalize } from 'node:path';
+import { join, extname, basename, resolve } from 'node:path';
+import { ensurePathWithinBase } from '@ai-video/lib/pathSafety.js';
 import { spawnSync } from 'node:child_process';
 import { json, parseMultipartFile, sanitizeError, type Route } from './helpers.js';
 import type { PipelineService } from '@ai-video/pipeline-core/pipelineService.js';
@@ -110,7 +111,9 @@ export function bgmLibraryRoutes(svc: PipelineService, broadcastEvent?: (event: 
         const filePath = resolve(libDir, safeName);
 
         // Path containment check
-        if (!normalize(filePath).startsWith(normalize(libDir))) {
+        try {
+          ensurePathWithinBase(libDir, filePath, 'filename');
+        } catch {
           json(res, 403, { error: 'Forbidden' }); return;
         }
         if (!existsSync(filePath)) {
@@ -171,7 +174,9 @@ export function bgmLibraryRoutes(svc: PipelineService, broadcastEvent?: (event: 
           const destPath = join(libDir, safeName);
 
           // Path containment
-          if (!normalize(resolve(destPath)).startsWith(normalize(libDir))) {
+          try {
+            ensurePathWithinBase(libDir, resolve(destPath), 'filename');
+          } catch {
             return json(res, 400, { error: 'Invalid filename' });
           }
 
@@ -211,7 +216,9 @@ export function bgmLibraryRoutes(svc: PipelineService, broadcastEvent?: (event: 
         const srcPath = resolve(libDir, safeName);
 
         // Path containment
-        if (!normalize(srcPath).startsWith(normalize(libDir))) {
+        try {
+          ensurePathWithinBase(libDir, srcPath, 'filename');
+        } catch {
           return json(res, 403, { error: 'Forbidden' });
         }
         if (!existsSync(srcPath)) {
@@ -297,14 +304,22 @@ export function bgmLibraryRoutes(svc: PipelineService, broadcastEvent?: (event: 
           return json(res, 400, { error: 'filePath and filename are required' });
         }
 
-        try {
-          // Defense-in-depth: reject filePath containing path traversal sequences
-          const normalizedSrc = normalize(resolve(filePath));
-          if (normalizedSrc.includes('..') || normalizedSrc.includes('\0')) {
-            return json(res, 403, { error: 'Forbidden' });
-          }
+        // Reject filePath with null bytes (safety guard before fs calls).
+        if (filePath.includes('\0')) {
+          return json(res, 403, { error: 'Forbidden' });
+        }
 
-          // Validate file exists and is audio
+        // Reject filename that contains path traversal sequences or separators
+        // to ensure the derived destination path always stays inside the library.
+        if (filename.includes('..') || filename.includes('/') || filename.includes('\\') || filename.includes('\0')) {
+          return json(res, 403, { error: 'Forbidden' });
+        }
+
+        try {
+          // The filePath comes from the Electron shell (a completed browser download)
+          // and is not required to live within any specific directory — it could be
+          // in the OS Downloads folder.  We validate it exists and is a non-empty
+          // audio file before copying it into the library.
           if (!existsSync(filePath)) {
             return json(res, 404, { error: 'Downloaded file not found' });
           }
@@ -322,12 +337,12 @@ export function bgmLibraryRoutes(svc: PipelineService, broadcastEvent?: (event: 
           // Parse mood and title from filename
           const { mood, title } = parseLibraryFilename(filename);
 
-          // Sanitize for safe filename
+          // Build destination path and verify (defense-in-depth) it stays within the library dir.
           const libDir = ensureLibraryDir(svc.getDataDir());
           const destPath = join(libDir, `${mood}--${title}${ext}`);
-
-          // Path containment check
-          if (!normalize(resolve(destPath)).startsWith(normalize(libDir))) {
+          try {
+            ensurePathWithinBase(libDir, resolve(destPath), 'destination');
+          } catch {
             return json(res, 403, { error: 'Forbidden' });
           }
 

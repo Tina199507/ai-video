@@ -7,6 +7,9 @@ import {
   json, parseJsonBody, readBody, sanitizeError, type Route,
   MAX_UPLOAD_SIZE, ALLOWED_UPLOAD_EXTENSIONS, MAX_SINGLE_FILE_BYTES,
 } from './helpers.js';
+import { createLogger } from '@ai-video/lib/logger.js';
+
+const log = createLogger('WorkbenchRoutes');
 
 export function workbenchRoutes(workbench: Workbench, uploadDir: string): Route[] {
   return [
@@ -229,7 +232,7 @@ export function workbenchRoutes(workbench: Workbench, uploadDir: string): Route[
       method: 'POST',
       pattern: /^\/api\/start$/,
       handler: (_req, res) => {
-        workbench.start().catch((err) => console.error('[workbench] loop error:', err));
+        workbench.start().catch((err) => log.error('workbench_loop_error', err instanceof Error ? err : undefined, err instanceof Error ? undefined : { error: String(err) }));
         json(res, 200, { ok: true });
       },
     },
