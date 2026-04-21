@@ -8,6 +8,9 @@ import {
   mergeContinuation,
 } from './ports/responseParserPort.js';
 import { Schema, validateSchema, ValidationResult } from './schemaValidator.js';
+import { createLogger } from '@ai-video/pipeline-core/libFacade.js';
+
+const log = createLogger('ResponseParser');
 
 /**
  * Extract JSON from text and validate against a schema.
@@ -25,10 +28,10 @@ export function extractAndValidateJSON<T>(
   const result: ValidationResult<T> = validateSchema<T>(raw, schema, label);
 
   if (result.repaired.length > 0) {
-    console.log(`[responseParser] schema auto-repaired fields for "${label}": ${result.repaired.join(', ')}`);
+    log.debug('schema_auto_repaired', { label, fields: result.repaired.join(', ') });
   }
   if (!result.valid) {
-    console.warn(`[responseParser] schema validation errors for "${label}": ${result.errors.join('; ')}`);
+    log.warn('schema_validation_errors', { label, errors: result.errors.join('; ') });
   }
 
   // Return repaired data even when there are non-critical errors –
