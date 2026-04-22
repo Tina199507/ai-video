@@ -23,6 +23,11 @@ function makeScene(overrides: Partial<PipelineScene> = {}): PipelineScene {
   };
 }
 
+/** Extract log messages from a vi.fn() mock that received LogEntry-shaped objects. */
+function logMessages(mockFn: ReturnType<typeof vi.fn>): string[] {
+  return mockFn.mock.calls.map((c) => (c[0] as { message: string }).message);
+}
+
 /* ================================================================== */
 /*  Happy-path: all checks pass                                        */
 /* ================================================================== */
@@ -61,7 +66,7 @@ describe('runFinalRiskGate — happy path', () => {
       scriptText: 'Safe text.',
     }, onLog);
     expect(onLog).toHaveBeenCalled();
-    const messages = (onLog.mock.calls as any[]).map((c: any) => c[0]?.message as string);
+    const messages = logMessages(onLog);
     expect(messages.some(m => m.includes('all checks passed'))).toBe(true);
   });
 });
@@ -275,7 +280,7 @@ describe('runFinalRiskGate — failure logging', () => {
       scenes: [makeScene({ assetUrl: undefined })],
       scriptText: 'Safe text.',
     }, onLog);
-    const messages = (onLog.mock.calls as any[]).map((c: any) => c[0]?.message as string);
+    const messages = logMessages(onLog);
     expect(messages.some(m => m.includes('FAILED'))).toBe(true);
     expect(messages.some(m => m.includes('missing assets'))).toBe(true);
   });
@@ -286,7 +291,7 @@ describe('runFinalRiskGate — failure logging', () => {
       scenes: [makeScene({ narrative: '[TODO] fill this in.' })],
       scriptText: 'Safe text.',
     }, onLog);
-    const messages = (onLog.mock.calls as any[]).map((c: any) => c[0]?.message as string);
+    const messages = logMessages(onLog);
     expect(messages.some(m => m.includes('placeholder content detected'))).toBe(true);
   });
 });
