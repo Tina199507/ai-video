@@ -12,7 +12,7 @@ export const PACKAGE_VERSION = '0.0.0';
 
 export {
   PACKAGE_VERSION as PIPELINE_CORE_VERSION,
-} from '../../../packages/pipeline-core/src/index.js';
+} from '@ai-video/pipeline-core';
 
 export * from './bootstrap.js';
 export * from './wiring.js';

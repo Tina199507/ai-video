@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PACKAGE_VERSION, assembleVideo } from './index.js';
-import { getStageDefinitions } from '../../pipeline-core/src/index.js';
+import { getStageDefinitions } from '@ai-video/pipeline-core';
 
 describe('@ai-video/pipeline-video barrel', () => {
   it('exports a stable version constant', () => {
