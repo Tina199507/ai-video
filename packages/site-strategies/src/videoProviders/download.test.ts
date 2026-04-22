@@ -122,7 +122,6 @@ describe('downloadFromHttpUrl', () => {
   it('returns null when the response stream errors', async () => {
     const s = await getState();
     s.responseError = new Error('stream aborted');
-    // Provide enough chunks before the error so the promise doesn't resolve happily
     s.responseChunks = [];
 
     const result = await downloadFromHttpUrl('https://cdn.example.com/video.mp4');
