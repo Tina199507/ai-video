@@ -61,14 +61,18 @@ export async function runPreflight(
     }
   }
 
-  // B5b: FFmpeg for ASSEMBLY
+  // B5b: FFmpeg for ASSEMBLY (soft warning — ASSEMBLY stage will fail naturally if missing)
   if (!deps.preCompletedStages.has('ASSEMBLY' as PipelineStage)) {
     const { isFFmpegAvailable } = await import('./ffmpegAssembler.js');
     if (!(await isFFmpegAvailable())) {
-      throw new Error(
-        'FFmpeg 未安装。ASSEMBLY 阶段需要 FFmpeg 来拼接最终视频。' +
-        '请运行: brew install ffmpeg (macOS) 或 apt-get install ffmpeg (Linux)。',
-      );
+      deps.addLog({
+        id: `log_preflight_ffmpeg_${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        message:
+          '⚠️ FFmpeg 未安装。ASSEMBLY 阶段将无法拼接最终视频。' +
+          '请运行: brew install ffmpeg (macOS) 或 apt-get install ffmpeg (Linux)。',
+        type: 'warning',
+      });
     }
   }
 
