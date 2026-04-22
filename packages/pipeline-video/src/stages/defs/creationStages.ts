@@ -23,6 +23,14 @@ import { parseScriptCIR } from '@ai-video/pipeline-core/cir/parsers.js';
 import { loadStyleCIR, loadScriptCIR, loadFormatSignature, loadShotCIR } from '@ai-video/pipeline-core/cir/loader.js';
 import type { StyleAnalysisCIR, FormatSignature } from '@ai-video/pipeline-core/cir/types.js';
 
+/** Throw a descriptive error when a required pipeline artifact is absent. */
+function requireArtifact<T>(value: T | undefined | null, artifactName: string, stage: string): T {
+  if (value == null) {
+    throw new Error(`${stage}: required artifact '${artifactName}' is missing — ensure the preceding stage completed successfully`);
+  }
+  return value;
+}
+
 /* ---- 4. NARRATIVE_MAP (includes calibration sub-step) ---- */
 
 registerStage({
@@ -138,7 +146,7 @@ async function generateScript(ctx: StageRunContext, validationFeedback?: string,
   return runScriptGeneration(adapter, {
     topic: project.topic,
     styleCIR: cir,
-    researchData: project.researchData ?? (() => { throw new Error('SCRIPT_GENERATION: researchData is missing — RESEARCH stage must complete first'); })(),
+    researchData: requireArtifact(project.researchData, 'researchData', 'SCRIPT_GENERATION'),
     calibrationData: project.calibrationData,
     narrativeMap: project.narrativeMap ?? [],
     generationPlan: project.generationPlan,
@@ -166,7 +174,7 @@ registerStage({
     const styleCIR = loadStyleCIR(ctx, 'QA_REVIEW');
 
     const result = await runQaReview(adapter, {
-      scriptOutput: project.scriptOutput ?? (() => { throw new Error('QA_REVIEW: scriptOutput is missing — SCRIPT_GENERATION stage must complete first'); })(),
+      scriptOutput: requireArtifact(project.scriptOutput, 'scriptOutput', 'QA_REVIEW'),
       topic: project.topic,
       styleCIR,
       formatSignature: loadFormatSignature(ctx, 'QA_REVIEW'),
@@ -186,7 +194,7 @@ registerStage({
 
     // Run contamination check — surface C12/C13 flags for human review
     const validation = validateScript(
-      project.scriptOutput ?? (() => { throw new Error('QA_REVIEW: scriptOutput is missing'); })(), project.calibrationData, styleCIR,
+      requireArtifact(project.scriptOutput, 'scriptOutput', 'QA_REVIEW'), project.calibrationData, styleCIR,
       loadFormatSignature(ctx, 'QA_REVIEW'), project.researchData?.facts,
     );
     const contamination = validation.classifiedErrors.filter(e => e.class === 'contamination');

@@ -22,6 +22,9 @@ import { createLogger } from '../libFacade.js';
 
 const log = createLogger('CIRParser');
 
+/** Structured form of visual_metaphor_mapping when it contains explicit rule/examples. */
+type VmmStructured = { rule?: string; examples?: Array<{ concept: string; metaphor_visual: string }> };
+
 /** Convert snake_case confidence keys from raw profile to camelCase CIR field names. */
 function normalizeConfidenceKeys(
   raw: Record<string, string>,
@@ -77,7 +80,7 @@ export function parseStyleAnalysisCIR(
   };
   if (vmm && typeof vmm === 'object') {
     if ('rule' in vmm) {
-      const vmmStructured = vmm as { rule?: string; examples?: Array<{ concept: string; metaphor_visual: string }> };
+      const vmmStructured = vmm as VmmStructured;
       vmmNormalised.rule = vmmStructured.rule ?? vmmNormalised.rule;
       if (Array.isArray(vmmStructured.examples)) {
         vmmNormalised.examples = vmmStructured.examples.map(e => ({

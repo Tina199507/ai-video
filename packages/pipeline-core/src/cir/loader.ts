@@ -14,16 +14,23 @@ export interface CIRLoadContext {
   loadArtifact: <T>(filename: string) => T | undefined;
 }
 
+/* ---- Type-guard helpers ---- */
+
+/** Returns true when `obj` is a non-null object whose `_cir` field equals `tag`. */
+function hasCirTag(obj: unknown, tag: string): obj is Record<string, unknown> {
+  return obj !== null && typeof obj === 'object' && (obj as Record<string, unknown>)._cir === tag;
+}
+
 /* ---- Generic loader (single implementation) ---- */
 
 function loadCIR<T>(ctx: CIRLoadContext, stage: PipelineStage, filename: string, tag: string, cirType: string): T {
   const raw = ctx.loadArtifact<T>(filename);
-  if (!raw || (raw as Record<string, unknown>)._cir !== tag) {
+  if (!hasCirTag(raw, tag)) {
     throw new CIRValidationError(stage, cirType, [
       `${filename} is missing or not a valid ${cirType} — cannot proceed`,
     ]);
   }
-  return raw;
+  return raw as T;
 }
 
 /* ---- Public typed loaders ---- */
@@ -61,6 +68,6 @@ export function loadFormatSignature(ctx: CIRLoadContext, stage: PipelineStage): 
  */
 export function loadShotCIR(ctx: CIRLoadContext, _stage: PipelineStage): ShotCIR | undefined {
   const raw = ctx.loadArtifact<ShotCIR>(ARTIFACT.SHOT_CIR);
-  if (!raw || (raw as Record<string, unknown>)._cir !== 'ShotAnalysis') return undefined;
-  return raw;
+  if (!hasCirTag(raw, 'ShotAnalysis')) return undefined;
+  return raw as ShotCIR;
 }
