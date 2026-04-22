@@ -39,7 +39,7 @@ describe('resolveQueueDetection', () => {
     };
     const result = resolveQueueDetection(config);
     expect(result.etaPatterns).toHaveLength(1);
-    expect(result.etaPatterns[0].regex).toBe('(\\d+) min');
+    expect(result.etaPatterns[0]!.regex).toBe('(\\d+) min');
   });
 
   it('falls back to default eta patterns when empty array is provided', () => {

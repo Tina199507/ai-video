@@ -127,11 +127,13 @@ describe('W1 — timeout cancels via abort signal', () => {
     expect(Date.now() - start).toBeGreaterThanOrEqual(40);
   });
 
-  it('waitWithAbort rejects immediately when signal is already aborted', () => {
+  it('waitWithAbort rejects immediately when signal is already aborted', async () => {
     const controller = new AbortController();
     controller.abort();
-    // throwIfAborted fires synchronously before returning a promise
-    expect(() => waitWithAbort(10_000, controller.signal, 'test')).toThrow(AIRequestAbortedError);
+    // Returns a rejected promise so callers can uniformly await the result
+    await expect(waitWithAbort(10_000, controller.signal, 'test')).rejects.toBeInstanceOf(
+      AIRequestAbortedError,
+    );
   });
 
   it('waitWithAbort rejects mid-wait when signal fires', async () => {

@@ -21,7 +21,7 @@ export function throwIfAborted(signal: AbortSignal | undefined, label: string): 
 
 export function waitWithAbort(ms: number, signal?: AbortSignal, label = 'AI wait'): Promise<void> {
   if (ms <= 0) return Promise.resolve();
-  throwIfAborted(signal, label);
+  if (signal?.aborted) return Promise.reject(new AIRequestAbortedError(label));
 
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {

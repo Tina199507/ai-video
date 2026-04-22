@@ -10,6 +10,9 @@ dist/
 build/
 out/
 *.tsbuildinfo
+# Keep shipped demo plugin dist files (pre-built, tracked in git)
+!data/plugins/**/dist/
+!data/plugins/**/dist/**
 
 # Environment
 .env
