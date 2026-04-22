@@ -264,15 +264,20 @@ Set `PROJECT_STORE_BACKEND=sqlite` and `GLOBAL_STORE_BACKEND=sqlite` (enabled by
 
 ## Extending the System
 
+> For complete, step-by-step extension guides with code examples, see **[`docs/extending.md`](extending.md)**.
+
 ### Adding a new AI adapter
 
 1. Implement `AIAdapter` in `packages/adapter-common/src/yourAdapter.ts`.
 2. Export it from `packages/adapter-common/src/index.ts`.
 3. Register the adapter in `AdapterResolver` or via the plugin system.
 
+See also: [`packages/adapter-common/README.md`](../packages/adapter-common/README.md).
+
 ### Adding a new pipeline stage
 
-1. Create a `StageDefinition` in `packages/pipeline-video/src/stages/yourStage.ts`:
+1. Add your stage ID to the `PipelineStage` union in `packages/pipeline-core/src/sharedTypes.ts`.
+2. Create a `StageDefinition` in `packages/pipeline-video/src/stages/defs/yourStage.ts`:
    ```typescript
    import { registerStage } from '@ai-video/pipeline-core/index.js';
    registerStage({
@@ -280,13 +285,17 @@ Set `PROJECT_STORE_BACKEND=sqlite` and `GLOBAL_STORE_BACKEND=sqlite` (enabled by
      execute: async (ctx: StageRunContext) => { … },
    });
    ```
-2. Add `'YOUR_STAGE'` to the `PipelineStage` union in `packages/pipeline-core/src/pipelineTypes.ts`.
-3. Import your file in `packages/pipeline-video/src/stageDefinitions.ts`.
+3. Import your file in `packages/pipeline-video/src/stages/defs/index.ts`.
+
+See also: [`packages/pipeline-video/README.md`](../packages/pipeline-video/README.md).
 
 ### Adding a new site strategy
 
-1. Create `packages/site-strategies/src/videoProviders/yourSite.ts` implementing the `VideoGenerationStrategy` interface.
-2. Register it in `packages/site-strategies/src/videoSites.ts`.
+1. Create `packages/site-strategies/src/yourSite.ts` implementing the `SiteStrategy` interface.
+2. Add your kind to the `VideoProviderKind` union in `packages/site-strategies/src/types.ts`.
+3. Register it in `packages/site-strategies/src/videoSites.ts`.
+
+See also: [`packages/site-strategies/README.md`](../packages/site-strategies/README.md).
 
 ### Plugins (out-of-tree)
 

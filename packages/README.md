@@ -1,43 +1,65 @@
 # packages/
 
-Workspace packages introduced in **C-1** as the skeleton for the
-monorepo split described in the audit report §4.2.  Direction **A**
-finished the physical move of `shared/`, `ui/`, and `browser-shell/`
-into the workspace tree. **PR-4–6** physically removed the old
-`src/pipeline`, `src/routes`, `src/adapters`, `src/cli`, and `src/cir`
-trees; canonical sources for the engine, routes, and adapters live under
-`packages/*` and `apps/server/src/`. The repo root **`src/`** directory was removed in **PR-7** (see `docs/src-root-migration-map.md`).
+Shared workspace packages for the AI Video monorepo. Each package is published as an `@ai-video/*` workspace and is symlinked into `node_modules/` by `npm install` — no separate build step is required.
 
-| Package | Status | Notes |
-|---|---|---|
-| `@ai-video/lib` | **physical move complete** (C-2 + B-codemod) | Canonical sources live at `packages/lib/src/`. Every call site under `src/` was rewritten to `import … from '@ai-video/lib/<name>.js'` by `scripts/codemod-import-aliases.mjs`, and the old `src/lib/*.ts` re-export shims were retired. |
-| `@ai-video/shared` | **physical move complete** (A-1) | Sources live at `packages/shared/src/`; the legacy top-level `shared/` directory was retired. Every backend/UI/desktop call site imports via `@ai-video/shared/<name>.js`. |
-| `@ai-video/pipeline-core` | **canonical engine** | Sources live at `packages/pipeline-core/src/` (orchestrator, stage registry/runner, providers, adapters used by the pipeline, `ProjectStore`, …). |
-| `@ai-video/pipeline-video` | **video stages + CIR** | Sources at `packages/pipeline-video/src/` — registers built-in video stages and owns `cir/` IR types; shared assembler helpers re-export from `@ai-video/pipeline-core` where applicable. |
-| `@ai-video/adapter-common` | **shared adapter utilities** | Sources at `packages/adapter-common/src/` — retry helpers (`@ai-video/lib`), prompt sanitizers, response parsers. |
-| `@ai-video/site-strategies` | **site strategies** | Sources at `packages/site-strategies/src/` — `jimengStrategy`, `klingStrategy`, `resolveSiteStrategy`, chat automation helpers consumed by the engine. |
+---
 
-Apps under `../apps/`:
+## Package Overview
 
-| App | Status | Notes |
-|---|---|---|
-| `@ai-video/app-server` | **runtime activated** (Phase 3A) | `apps/server/src/main.ts` is the backend entry. Route modules, bootstrap, wiring, and runtime live under `apps/server/src/`. Repo-root `src/server.ts` was removed (PR-7). |
-| `@ai-video/app-ui-shell` | **physical move complete** (A-2) | Vite + React frontend lives at `apps/ui-shell/`. Pulls `@ai-video/shared` via the workspace symlink + a vite alias for dev mode. |
-| `@ai-video/app-desktop` | **physical move complete** (A-3) | Electron browser-shell lives at `apps/desktop/`. `scripts/build-sidecar.sh`, `electron-builder.json`, `tsconfig.json`, and CI workflows were updated accordingly. The legacy user-data path is preserved by `app.setName('ai-video-browser-shell')` in `main.ts`. |
+| Package | Import path | Description |
+|---------|-------------|-------------|
+| `lib` | `@ai-video/lib` | Shared utilities: logger, retry, path-safety, atomic JSON store, temp-file tracker. No internal deps. |
+| `shared` | `@ai-video/shared` | Cross-package TypeScript types used by server, UI, and desktop. No runtime deps. |
+| `pipeline-core` | `@ai-video/pipeline-core` | 15-pass compilation engine: orchestrator, stage registry, ports, project store, plugin loader. |
+| `pipeline-video` | `@ai-video/pipeline-video` | Built-in video stage definitions (registered as a side-effect) + CIR types. |
+| `adapter-common` | `@ai-video/adapter-common` | AI provider adapters: Gemini, ChatAdapter (Playwright), AIVideoMaker, FallbackAdapter. |
+| `site-strategies` | `@ai-video/site-strategies` | Playwright site-automation strategies for video-generation websites (Jimeng, Kling). |
 
-## Install layout
+Each package has its own `README.md` with API details and extension guidance.
 
-The root `package.json` declares `"workspaces": ["packages/*",
-"apps/*"]`.  `npm ci` from the repo root installs every workspace
-package's deps into the hoisted `node_modules/` and symlinks
-`@ai-video/*` to the corresponding source folder.  After direction A
-finished, `apps/ui-shell/` and `apps/desktop/` are real workspaces
-too, so the previous "two extra `npm ci` steps in CI" disappeared.
+---
 
-## Vitest
+## Dependency Graph
 
-`vitest.config.ts` declares dedicated `packages` and `apps` projects
-so `npm test` automatically picks up `packages/*/src/**/*.test.ts`
-and `apps/*/src/**/*.test.ts`.  The ui-shell tree is excluded from
-the `apps` project because its React component tests run through the
-dedicated `apps/ui-shell/vite.config.ts` jsdom project.
+```
+@ai-video/app-server
+  ├── pipeline-core
+  ├── pipeline-video
+  ├── adapter-common
+  ├── site-strategies
+  └── lib
+
+pipeline-core
+  ├── lib
+  └── shared
+
+pipeline-video
+  ├── pipeline-core
+  └── shared
+
+adapter-common
+  ├── pipeline-core
+  └── lib
+
+site-strategies
+  ├── pipeline-core
+  ├── adapter-common
+  └── shared
+
+lib     → (no internal deps)
+shared  → (no internal deps)
+```
+
+Dependency compliance is enforced by `npm run lint:deps`. Never introduce a cycle.
+
+---
+
+## Testing
+
+`vitest.config.ts` at the repo root declares a `packages` project that picks up all `packages/*/src/**/*.test.ts` files automatically. Run from the repo root:
+
+```bash
+npm test                              # all packages
+npx vitest run packages/lib/src       # single package
+npx vitest run --coverage             # with coverage thresholds
+```

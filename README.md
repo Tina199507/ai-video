@@ -277,6 +277,19 @@ ai-video/
 └── demo/                 Standalone chat-automation workbench demo
 ```
 
+### Contributing
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full developer guide: environment setup, coding standards, testing requirements, and the pull request process.
+
+Key extension guides:
+
+| Topic | Document |
+|-------|----------|
+| Adding an AI adapter | [`docs/extending.md#1-adding-a-new-ai-adapter`](docs/extending.md#1-adding-a-new-ai-adapter) |
+| Adding a pipeline stage | [`docs/extending.md#2-adding-a-new-pipeline-stage`](docs/extending.md#2-adding-a-new-pipeline-stage) |
+| Adding a site strategy | [`docs/extending.md#3-adding-a-new-site-strategy`](docs/extending.md#3-adding-a-new-site-strategy) |
+| Out-of-tree plugins | [`docs/extending.md#4-out-of-tree-plugins`](docs/extending.md#4-out-of-tree-plugins) |
+
 ---
 
 ## Deployment
@@ -318,7 +331,7 @@ A: Yes. Configure browser-automation accounts in the Workbench (Accounts tab) fo
 A: Under `DATA_DIR/projects/` (default `./data/projects/`). Each project gets its own directory with JSON artifacts and an `assets/` sub-directory for images and video clips.
 
 **Q: How do I add a new AI provider?**
-A: See [`docs/architecture.md#extending-providers`](docs/architecture.md#extending-providers). Providers implement the `AIAdapter` interface from `packages/pipeline-core/src/types/adapter.ts`.
+A: See [`docs/extending.md`](docs/extending.md#1-adding-a-new-ai-adapter) for the full step-by-step guide. Providers implement the `AIAdapter` interface from `packages/pipeline-core/src/types/adapter.ts`.
 
 **Q: The pipeline fails at the VIDEO_GEN stage — what should I check?**
 A: 1) Verify your `aivideomakerApiKey` is set in **Config → Video Provider**. 2) Check that you have browser accounts with video-generation capability. 3) Review the scene logs in the UI for the specific error message.
